@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/vercel'
+import { put } from '@vercel/blob'
 import connectDB from '@/lib/mongoose'
 import { Game } from '@/lib/models/Game'
 import { Click } from '@/lib/models/Click'
@@ -55,6 +56,37 @@ app.post('/clicks', async (c) => {
     return c.json(click)
   } catch (error) {
     return c.json({ error: 'Failed to record click' }, 500)
+  }
+})
+
+// Upload route (moved from app/api/upload/route.ts)
+app.post('/upload', async (c) => {
+  try {
+    const formData = await c.req.formData()
+    const file = formData.get('file') as File
+
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400)
+    }
+
+    // Check file type
+    if (!file.type?.startsWith('image/')) {
+      return c.json({ error: 'File must be an image' }, 400)
+    }
+
+    // Check file size (max 5MB)
+    if ((file as any).size > 5 * 1024 * 1024) {
+      return c.json({ error: 'File size must be less than 5MB' }, 400)
+    }
+
+    const blob = await put((file as any).name, file as any, {
+      access: 'public',
+    })
+
+    return c.json({ url: blob.url })
+  } catch (error) {
+    console.error('Upload error:', error)
+    return c.json({ error: 'Failed to upload image' }, 500)
   }
 })
 
